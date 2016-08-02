@@ -25,18 +25,32 @@ if not String.to_hex(digest) == t["sha1"] then return ngx.exit(exitCode) end
 local JSON = require "cjson"
 local data = JSON.decode(body)
 
-if data.pusher.name == owner and data.pusher.name == data.repository.owner.name then
-    local event = headers["X-GitHub-Event"];
+local event = headers["X-GitHub-Event"];
 
-    if event == "push" then
+-- 处理push事件
+if event == "push" then
+    if data.pusher.author == owner and data.pusher.name == data.repository.owner.name then
         ngx.say("[" .. owner .. "] update code")
         os.execute("bash " .. script .. " " .. event .. " >> " .. log)
-        ngx.exit(200)
-    end
-
-    ngx.say("ignore event: " .. owner .. "," .. event)
-    ngx.exit(100)
-else
-    ngx.say("ignore owner not equl: " .. owner)
-    ngx.exit(100)
+        return ngx.exit(200)
+    else
+        ngx.say("ignore owner not equl: " .. owner)
+        return ngx.exit(100)
+    end;
 end;
+
+-- 处理release事件
+if event == "release" then
+    if data.release.author.login == owner and data.release.author.login == data.repository.owner.login then
+        ngx.say("[" .. owner .. "] release code")
+        os.execute("bash " .. script .. " " .. event .. " >> " .. log)
+        return ngx.exit(200)
+    else
+        ngx.say("ignore owner not equl: " .. owner)
+        return ngx.exit(100)
+    end;
+end;
+
+
+ngx.say("ignore event: " .. data.sender.login .. "," .. event)
+ngx.exit(100)
